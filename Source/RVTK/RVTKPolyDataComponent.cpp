@@ -90,7 +90,7 @@ void URVTKPolyDataComponent::InitializeSafe()
     // Material
     check(!bMaterialInitialized);
     bMaterialInitialized = true;
-    FString MaterialPath = TEXT("/RVTK/Materials/M_FEM_Unlit_HeadLight");
+    FString MaterialPath = TEXT("/RVTK/Materials/M_FEM_Unlit_HeadLight_5_4");
     UMaterial* Mat = Cast<UMaterial>(StaticLoadObject(UMaterial::StaticClass(), nullptr, *MaterialPath));
     if(Mat)
     {
