@@ -261,9 +261,9 @@ void URVTKPolyDataComponent::BuildMeshFromPoly(FRVTKPolyData &PolyData)
     int I2 = PolyData.Triangles[TriIdx+2];
 
     check(Mesh.IsVertex(I0) && Mesh.IsVertex(I1) && Mesh.IsVertex(I2));
-    int Tid = Mesh.AppendTriangle(I0, I1, I2); // Flip Y
-    Normals->SetTriangle(Tid, FIndex3i(NormalElements[I0], NormalElements[I1], NormalElements[I2])); // Flip Y
-    Colors->SetTriangle(Tid, FIndex3i(ColorElements[I0], ColorElements[I1], ColorElements[I2])); // Flip Y
+    int Tid = Mesh.AppendTriangle(I0, I1, I2);
+    Normals->SetTriangle(Tid, FIndex3i(NormalElements[I0], NormalElements[I1], NormalElements[I2]));
+    Colors->SetTriangle(Tid, FIndex3i(ColorElements[I0], ColorElements[I1], ColorElements[I2]));
   }
 
   SetMesh(MoveTemp(Mesh));
@@ -275,8 +275,9 @@ bool URVTKPolyDataComponent::UpdateMeshFromTimeStep(float TimeStep, float &OutTi
 
   bool Ret = false;
   FMemMark Mark(FMemStack::Get());
+  FDynamicMesh3* RawMesh = bMeshInitialized ? GetMesh() : 0;
 
-  if(bMeshInitialized && Poly != nullptr && ScalarTimeSteps.Num() > 0)
+  if(bMeshInitialized && Poly != nullptr && ScalarTimeSteps.Num() > 0 && RawMesh)
   {
     ////////////////////////////////
     //~ Sampling Scalar
@@ -284,24 +285,26 @@ bool URVTKPolyDataComponent::UpdateMeshFromTimeStep(float TimeStep, float &OutTi
     FRVTKScalarTimeStep *PrevStep = 0;
     FRVTKScalarTimeStep *NextStep = 0;
 
-    // FIXME(@k): we could use binary search here, but for now just make it work
-    for(int i = 0; i < ScalarTimeSteps.Num(); ++i)
+    // FIXME(@k): we could use binary search here, but for now (also I don't have that many datasets) just make it work
     {
       TRACE_CPUPROFILER_EVENT_SCOPE_STR("GetBoundingSteps");
-      FRVTKScalarTimeStep *Curr = &ScalarTimeSteps[i];
-      FRVTKScalarTimeStep *Next = (i+1) < ScalarTimeSteps.Num() ? &ScalarTimeSteps[i+1] : 0;
-
-      if(Curr->TimeStep <= TimeStep && Next != 0 && TimeStep <= Next->TimeStep)
+      for(int i = 0; i < ScalarTimeSteps.Num(); ++i)
       {
-        PrevStep = Curr;
-        NextStep = Next;
-        break;
-      }
+        FRVTKScalarTimeStep *Curr = &ScalarTimeSteps[i];
+        FRVTKScalarTimeStep *Next = (i+1) < ScalarTimeSteps.Num() ? &ScalarTimeSteps[i+1] : 0;
 
-      if(Curr->TimeStep <= TimeStep && Next == 0)
-      {
-        PrevStep = NextStep = Curr;
-        break;
+        if(Curr->TimeStep <= TimeStep && Next != 0 && TimeStep <= Next->TimeStep)
+        {
+          PrevStep = Curr;
+          NextStep = Next;
+          break;
+        }
+
+        if(Curr->TimeStep <= TimeStep && Next == 0)
+        {
+          PrevStep = NextStep = Curr;
+          break;
+        }
       }
     }
 
@@ -332,8 +335,8 @@ bool URVTKPolyDataComponent::UpdateMeshFromTimeStep(float TimeStep, float &OutTi
       TargetTimeStep = PrevStep->TimeStep;
     }
 
-    TArray<FLinearColor, TMemStackAllocator<>> Colors;
-    Colors.SetNumUninitialized(VertexCount);
+    // TArray<FLinearColor, TMemStackAllocator<>> Colors;
+    // Colors.SetNumUninitialized(VertexCount);
 
     double ScalarMin = LutRange[0];
     double ScalarMax = LutRange[1];
@@ -341,11 +344,13 @@ bool URVTKPolyDataComponent::UpdateMeshFromTimeStep(float TimeStep, float &OutTi
     double ScalarInvRange = !FMath::IsNearlyZero(ScalarRange) ? 1.0 / ScalarRange : 0.0;
 
     {
-      TRACE_CPUPROFILER_EVENT_SCOPE_STR("ColorLookUp");
-      for(int ScalarIdx = 0; ScalarIdx < ScalarCount; ++ScalarIdx)
+      TRACE_CPUPROFILER_EVENT_SCOPE_STR("ColorLut & UpdateColor");
+
+      FDynamicMeshColorOverlay* DstColors = RawMesh->Attributes()->PrimaryColors();
+      for(int VertexIdx = 0; VertexIdx < VertexCount; ++VertexIdx)
       {
         // FIXME(@k): we could use a pre-computed color table
-        float Scalar = Scalars[ScalarIdx];
+        float Scalar = Scalars[VertexIdx];
 
         // Color Lut
         float Normalized = 0.0f;
@@ -356,35 +361,25 @@ bool URVTKPolyDataComponent::UpdateMeshFromTimeStep(float TimeStep, float &OutTi
 
         Normalized = RClamp(0.0f, Normalized, 1.0f);
         int LutIndex = FMath::RoundToInt(Normalized*(Lut.Colors.Num()-1));
-        Colors[ScalarIdx] = Lut.Colors[LutIndex];
+        FLinearColor Color = Lut.Colors[LutIndex];
+        DstColors->SetElement(VertexIdx, FVector4f(Color));
       }
     }
 
-    // Update Colros
     {
-      TRACE_CPUPROFILER_EVENT_SCOPE_STR("UpdateMesh");
-      FDynamicMesh3* RawMesh = GetMesh(); 
-
-      if(RawMesh)
-      {
-        TRACE_CPUPROFILER_EVENT_SCOPE_STR("UpdateVertexColors");
-        FDynamicMeshColorOverlay* DstColors = RawMesh->Attributes()->PrimaryColors();
-
-        // Update vertex colors only directly on the raw mesh
-        for(int VertexIdx = 0; VertexIdx < VertexCount && VertexIdx < RawMesh->MaxVertexID(); ++VertexIdx)
-        {
-          if(RawMesh->IsVertex(VertexIdx))
-          {
-            DstColors->SetElement(VertexIdx, FVector4f(Colors[VertexIdx]));
-          }
-        }
-      }
-
+      TRACE_CPUPROFILER_EVENT_SCOPE_STR("FastNotifyColorsUpdated");
       FastNotifyColorsUpdated();
-      Ret = true;
     }
-
+    Ret = true;
     OutTimeStep = TargetTimeStep;
+
+    // for(int VertexIdx = 0; VertexIdx < VertexCount && VertexIdx < RawMesh->MaxVertexID(); ++VertexIdx)
+    // {
+    //   if(RawMesh->IsVertex(VertexIdx))
+    //   {
+    //     DstColors->SetElement(VertexIdx, FVector4f(Colors[VertexIdx]));
+    //   }
+    // }
   }
   return Ret;
 }
