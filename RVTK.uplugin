@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "RVTK",
+	"Description": "RealtimeVisualizationToolkit",
+	"Category": "Other",
+	"CreatedBy": "PicklePrick",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": true,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "RVTK",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
