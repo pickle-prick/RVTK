@@ -86,6 +86,8 @@ Use `BP_DebugPolyData` when you only need to confirm that data loads and renders
 - Normals are generated from the mesh triangles.
 - The default time step spacing is currently `0.1` seconds per scalar file.
 - The component updates vertex colors, not mesh topology, during playback.
+- For shipping builds, configure `Additional Non-Asset Directories to Copy` in the project settings to include the `bin` folder.
+- When using Lumen lighting, the polydata may appear to glow. To reduce this, adjust the color scale in `M_FEM_Unlit_HeadLight_5_4.uasset`; the default is `1.0`, and `0.03` usually looks bright enough without glowing.
 
 ## Known Issues
 

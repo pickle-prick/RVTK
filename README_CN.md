@@ -86,6 +86,8 @@ Blueprint 示例流程：
 - 法线会根据网格三角面生成。
 - 默认时间步间隔目前是每个标量文件 `0.1` 秒。
 - 播放时组件只更新顶点颜色，不更新网格拓扑。
+- 对于 Shipping 构建，请在项目设置中配置 `Additional Non-Asset Directories to Copy`，将 `bin` 文件夹包含进去。
+- 使用 Lumen 照明时，polydata 可能会显得发光。可以在 `M_FEM_Unlit_HeadLight_5_4.uasset` 中调整 color scale；默认值为 `1.0`，通常将其设为 `0.03` 可以保持足够亮度并减少发光感。
 
 ## 已知问题
 
