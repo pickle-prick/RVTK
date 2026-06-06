@@ -9,6 +9,12 @@ URVTKPolyDataComponent::URVTKPolyDataComponent()
 {
   SetMobility(EComponentMobility::Movable);
 
+  // Disable affecting distance fields (stops Lumen GI / reflection capture)
+  bAffectDistanceFieldLighting = false;
+
+  // Disable dynamic indirect lighting injection
+  bAffectDynamicIndirectLighting = false;
+
   PrimaryComponentTick.bCanEverTick = true;
   PrimaryComponentTick.bStartWithTickEnabled = true;
 }
